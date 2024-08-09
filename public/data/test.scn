@@ -1,0 +1,32 @@
+# This author applies to all scenes in this file.
+author bee {
+    discord "@its_bee"
+}
+
+scene test {
+    # This author applies to only this scene.
+    author elynth {
+        discord "@elynth_"
+    }
+
+    # Starting branch, this is where the scene begins.
+    branch start {
+        "Hello, world. Welcome to an example scene.
+        These \"string markers\" should be ignored.
+
+        An empty line of whitespace (like above) should create a new paragraph.
+        Also, the leading whitespace should be ignored!"
+
+        jump markdown_example
+    }
+
+    branch markdown_example {
+        "You can also use *markdown* in your scenes! This can be very useful for more complicated examples."
+    }
+}
+
+scene test02 {
+    author elynth {
+        discord "@not_elynth"
+    }
+}
