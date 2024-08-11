@@ -1,3 +1,5 @@
+import {Action} from "@/core/action.ts";
+
 export class Author {
     public readonly id: string;
 
@@ -8,9 +10,31 @@ export class Author {
 
 export class Branch {
     public readonly id: string;
+    public readonly block: Block = new Block();
 
     public constructor(id: string) {
         this.id = id;
+    }
+}
+
+export class Return {
+}
+
+type Flow = Return;
+
+export class Block {
+    private _body: (Action | Flow)[] = [];
+
+    public get(n: number) {
+        return this._body[n];
+    }
+
+    public append(action: Action) {
+        this._body.push(action);
+    }
+
+    public get length(): number {
+        return this._body.length;
     }
 }
 

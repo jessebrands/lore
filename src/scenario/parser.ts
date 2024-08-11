@@ -1,4 +1,5 @@
 import Scene, {Author, Branch} from "@/scenario/scene.ts";
+import {JumpAction, TextAction} from "@/scenario/actions.ts";
 
 interface Reader {
     peek: (k?: number) => Promise<string>;
@@ -44,11 +45,11 @@ enum TokenType {
     CLOSE_BRACE = "CLOSE_BRACE",
 }
 
-const keywords = ["author", "scene", "branch", "jump"]
+const keywords = ["author", "scene", "branch", "jump", "return"] as const;
 
 type Keyword = {
     type: TokenType.KEYWORD;
-    value: "author" | "scene" | "branch" | "jump";
+    value: typeof keywords[number];
 }
 
 type Comment = {
@@ -128,7 +129,7 @@ export class Lexer {
             s += await this._reader.read();
         }
 
-        if (keywords.includes(s)) {
+        if (keywords.includes(s as typeof keywords[number])) {
             return {
                 type: TokenType.KEYWORD,
                 value: s as Keyword['value'],
@@ -248,10 +249,35 @@ export class Parser {
 
         const branch = new Branch(token.value);
 
+        const keyword = async (token: Keyword) => {
+            switch (token.value) {
+                case "jump": {
+                    const label = await this._lexer.nextToken();
+                    if (label === undefined || label.type !== TokenType.IDENTIFIER) {
+                        throw new SyntaxError(`Expected identifier, got '${token?.type}'`);
+                    }
+                    branch.block.append(new JumpAction(label.value));
+                    break;
+                }
+
+                default:
+                    throw new SyntaxError(`Invalid keyword '${token.value}'`);
+            }
+        }
+
         while ((token = await this._lexer.nextToken()) !== undefined) {
-            if (token.type === TokenType.CLOSE_BRACE) {
-                scene.addBranch(branch);
-                return;
+            switch (token.type) {
+                case TokenType.KEYWORD:
+                    await keyword(token);
+                    break;
+
+                case TokenType.STRING:
+                    branch.block.append(new TextAction(token.value));
+                    break;
+
+                case TokenType.CLOSE_BRACE:
+                    scene.addBranch(branch);
+                    return;
             }
         }
     }
@@ -271,20 +297,25 @@ export class Parser {
             throw new SyntaxError(`Expected OPEN_BRACE, got ${token?.type}`);
         }
 
+        const keyword = async (token: Keyword) => {
+            switch (token.value) {
+                case "author": {
+                    const author = await this.author();
+                    authors.push(author);
+                    break;
+                }
+
+                case "branch": {
+                    await this.branch(scene);
+                    break;
+                }
+            }
+        }
+
         while ((token = await this._lexer.nextToken()) !== undefined) {
             if (token.type === TokenType.KEYWORD) {
-                switch (token.value) {
-                    case "author": {
-                        const author = await this.author();
-                        authors.push(author);
-                        continue;
-                    }
-
-                    case "branch": {
-                        await this.branch(scene);
-                        continue;
-                    }
-                }
+                await keyword(token);
+                continue;
             }
 
             if (token.type === TokenType.CLOSE_BRACE) {
@@ -316,25 +347,29 @@ export class Parser {
         const scenes: Scene[] = [];
         const authors: Author[] = [];
 
+        const keyword = async (token: Keyword) => {
+            switch (token.value) {
+                case "author": {
+                    const author = await this.author();
+                    authors.push(author);
+                    break;
+                }
+
+                case "scene": {
+                    const scene = await this.scene();
+                    scenes.push(scene);
+                    break;
+                }
+
+                default:
+                    throw new Error(`Expected keyword 'author' or 'scene', got '${token.value}'`);
+            }
+        }
+
         while ((token = await this._lexer.nextToken()) !== undefined) {
             switch (token.type) {
                 case TokenType.KEYWORD: {
-                    switch (token.value) {
-                        case "author": {
-                            const author = await this.author();
-                            authors.push(author);
-                            break;
-                        }
-
-                        case "scene": {
-                            const scene = await this.scene();
-                            scenes.push(scene);
-                            break;
-                        }
-
-                        default:
-                            throw new Error(`Expected keyword 'author' or 'scene', got '${token.value}'`);
-                    }
+                    await keyword(token);
                     break;
                 }
 
